@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Risk Radar</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        background: #000040;
+        background: radial-gradient(circle at 30% 30%, #1e1b4b 0%, #000040 100%);
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      .loader {
+        --c: no-repeat linear-gradient(#ffffff 0 0);
+        background:
+          var(--c), var(--c), var(--c),
+          var(--c), var(--c), var(--c),
+          var(--c), var(--c), var(--c);
+        background-size: 16px 16px;
+        width: 45px;
+        height: 45px;
+        border-radius: 8px;
+        animation:
+          l32-1 1s infinite cubic-bezier(0.3,0.6,0.7,0.4),
+          l32-2 1s infinite steps(8);
+      }
+
+      @keyframes l32-1 {
+        0%,100% { width:45px; height:45px; }
+        35%,65% { width:65px; height:65px; }
+      }
+
+      @keyframes l32-2 {
+        0%,40%  { background-position: 0 0,0 50%,0 100%,50% 100%,100% 100%,100% 50%,100% 0,50% 0,50% 50%; }
+        60%,100%{ background-position: 0 50%,0 100%,50% 100%,100% 100%,100% 50%,100% 0,50% 0,0 0,50% 50%; }
+      }
+
+      .fade-out {
+        animation: fadeOut 1.2s ease-out forwards;
+      }
+
+      @keyframes fadeOut {
+        to { opacity: 0; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <div id="loader" class="loader" aria-label="Loading" role="status"></div>
+
+    <script>
+      // Show pure white loader for exactly 10 seconds → then redirect
+      setTimeout(() => {
+        document.getElementById("loader").classList.add("fade-out");
+        setTimeout(() => {
+          window.location.href = "dash.html";
+        }, 1200);
+      }, 10000); // 10 seconds
+    </script>
+
+  </body>
+</html>
