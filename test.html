@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk Radar: The Watchful Guardian</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#000040',
+                        secondary: '#F2F2F2',
+                        danger: '#EF4444',
+                        warning: '#F59E0B',
+                        success: '#10B981',
+                        info: '#3B82F6'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,'Open Sans','Helvetica Neue',sans-serif;line-height:1.5;}
+        table {min-width:100%;}
+        th, td {padding:12px 24px;text-align:left;vertical-align:middle;}
+        th {font-weight:500;cursor:pointer;}
+        th.sort-asc::after {content:" Up Arrow";font-size:10px;}
+        th.sort-desc::after {content:" Down Arrow";font-size:10px;}
+        tbody tr {transition:background-color .2s ease;cursor:pointer;}
+        tbody tr:hover {background-color:#f2f2f2;}
+        .status-badge {display:inline-flex;align-items:center;padding:.25rem .75rem;border-radius:9999px;font-size:.75rem;font-weight:500;text-transform:capitalize;}
+        .status-active {background-color:#3B82F6;color:white;}
+        .status-mitigated {background-color:#10B981;color:white;}
+        .status-critical {background-color:#EF4444;color:white;}
+        .status-watch {background-color:#F59E0B;color:white;}
+        .risk-icon {display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;margin-right:8px;}
+        .icon-improving {color:#10B981;}
+        .icon-stable {color:#3B82F6;}
+        .icon-declining {color:#EF4444;}
+        .tab-button {padding:0.5rem 1rem;border-radius:0.375rem 0.375rem 0 0;background:#e5e7eb;}
+        .tab-button.active {background:#fff;border:1px solid #d1d5db;border-bottom:none;}
+        .tab-content {display:none;}
+        .tab-content.active {display:block;}
+        .sidebar {position:fixed;left:-280px;top:0;height:100%;width:280px;background:#000040;color:white;transition:left .3s;z-index:1000;padding-top:5rem;overflow-y:auto;}
+        .sidebar.open {left:0;}
+        .sidebar-toggle {position:fixed;left:1rem;top:1.2rem;z-index:1001;background:#000040;color:white;padding:0.5rem;border-radius:0.5rem;cursor:pointer;}
+        @media (max-width:1024px) {
+            th, td {padding:8px 12px;font-size:0.875rem;}
+            .risk-icon {width:20px;height:20px;}
+            .desktop-only {display:none;}
+        }
+        @media (max-width:768px) {
+            .mobile-hidden {display:none;}
+            .mobile-block {display:block !important;}
+            .filter-drawer {display:none;}
+            .filter-drawer.open {display:block;position:fixed;top:0;left:0;right:0;bottom:0;background:white;z-index:999;padding:2rem;}
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+<!-- Sidebar Toggle -->
+<div class="sidebar-toggle hidden lg:block" onclick="document.querySelector('.sidebar').classList.toggle('open')">
+    <i data-feather="menu" class="w-5 h-5"></i>
+</div>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+    <div class="p-6">
+        <h2 class="text-xl font-bold mb-8">Risk Radar</h2>
+        <ul class="space-y-2">
+            <li><a href="#" class="block py-3 px-4 bg-white/10 rounded-lg font-medium">Dashboard</a></li>
+            <li><a href="#" class="block py-3 px-4 bg-white/20 rounded-lg font-medium">Risk Register</a></li>
+            <li><a href="#" class="block py-3 px-4 hover:bg-white/10 rounded-lg transition">Heatmap</a></li>
+            <li><a href="#" class="block py-3 px-4 hover:bg-white/10 rounded-lg transition">Reviews</a></li>
+            <li><a href="#" class="block py-3 px-4 hover:bg-white/10 rounded-lg transition">Reports</a></li>
+            <li><a href="#" class="block py-3 px-4 hover:bg-white/10 rounded-lg transition">Settings</a></li>
+        </ul>
+    </div>
+</nav>
+
+<header class="bg-primary text-white py-4">
+    <div class="container mx-auto px-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold">Risk Radar</h1>
+                <p class="text-secondary/80 text-sm">The Watchful Guardian</p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <i data-feather="bell" class="w-5 h-5"></i>
+                <div class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                    <i data-feather="user" class="w-4 h-4 text-primary"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="container mx-auto px-4 py-6">
+
+    <!-- Filters & Controls -->
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex flex-wrap gap-3 items-center">
+                <button onclick="toggleFilterDrawer()" class="lg:hidden bg-primary text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+                    <i data-feather="filter" class="w-4 h-4"></i><span>Filters</span>
+                </button>
+                <div class="filter-drawer" id="filterDrawer">
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        <select id="filterCategory" class="px-4 py-2 border rounded-lg"><option value="">All Categories</option></select>
+                        <select id="filterDivision" class="px-4 py-2 border rounded-lg"><option value="">All Divisions</option></select>
+                        <select id="filterStatus" class="px-4 py-2 border rounded-lg"><option value="">All Status</option></select>
+                        <select id="filterTrend" class="px-4 py-2 border rounded-lg"><option value="">All Trends</option></select>
+                    </div>
+                </div>
+            </div>
+            <div class="relative flex-1 max-w-md">
+                <i data-feather="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <input type="text" id="searchInput" placeholder="Search risks..." class="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div class="flex space-x-2">
+                <button class="bg-primary text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary/90 transition">
+                    <i data-feather="plus" class="w-4 h-4"></i><span>Create Risk</span>
+                </button>
+                <button id="exportBtn" class="border border-primary text-primary px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary/10 transition">
+                    <i data-feather="download" class="w-4 h-4"></i><span>Export CSV</span>
+                </button>
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center justify-between mt-4 gap-4">
+            <div class="flex space-x-2 flex-wrap gap-2">
+                <div class="bg-secondary rounded-full px-3 py-1 text-sm text-primary" id="filterTags"></div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-600">Show</span>
+                <select id="pageSize" class="px-3 py-1 border rounded">
+                    <option>10</option><option selected>25</option><option>50</option><option>100</option>
+                </select>
+                <span class="text-sm text-gray-600">entries</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">All Risks</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-primary text-white">
+                    <tr>
+                        <th onclick="sortTable('id')">Risk ID</th>
+                        <th onclick="sortTable('name')">Risk Event</th>
+                        <th onclick="sortTable('category')">Category</th>
+                        <th onclick="sortTable('division')">Division</th>
+                        <th onclick="sortTable('owner')">Owner</th>
+                        <th class="text-center" onclick="sortTable('inherentScore')">Inherent</th>
+                        <th class="text-center" onclick="sortTable('currentScore')">Current</th>
+                        <th class="text-center" onclick="sortTable('residualScore')">Residual</th>
+                        <th class="text-center">Trend</th>
+                        <th onclick="sortTable('status')">Status</th>
+                        <th onclick="sortTable('lastReview')">Last Review</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200" id="riskTableBody"></tbody>
+            </table>
+        </div>
+        <div class="p-4 flex justify-between items-center">
+            <div id="paginationInfo" class="text-sm text-gray-600"></div>
+            <div class="flex space-x-2">
+                <button id="prevPage" class="px-4 py-2 border rounded-lg hover:bg-gray-100 disabled:opacity-50" disabled>Previous</button>
+                <button id="nextPage" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Next</button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Enhanced Modal -->
+<div id="riskModal" class="fixed inset-0 z-50 hidden overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" onclick="closeRiskModal()"></div>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
+            <div class="bg-primary text-white px-6 py-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 id="modal-title" class="text-2xl font-bold">
+                            <span id="modalRiskId" class="font-mono"></span> • <span id="modalRiskName"></span>
+                        </h3>
+                        <p class="mt-1 text-sm opacity-90" id="modalRiskOwner"></p>
+                    </div>
+                    <button id="closeModal" class="text-white/70 hover:text-white">
+                        <i data-feather="x" class="w-7 h-7"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <!-- Tabs -->
+                <div class="flex space-x-1 mb-6 border-b">
+                    <button class="tab-button active" onclick="openTab(event,'tab-overview')">Overview</button>
+                    <button class="tab-button" onclick="openTab(event,'tab-assessments')">Assessments</button>
+                    <button class="tab-button" onclick="openTab(event,'tab-controls')">Controls</button>
+                    <button class="tab-button" onclick="openTab(event,'tab-actions')">Actions</button>
+                    <button class="tab-button" onclick="openTab(event,'tab-evidence')">Evidence</button>
+                    <button class="tab-button" onclick="openTab(event,'tab-reviews')">Reviews</button>
+                    <button class="tab-button" onclick="openTab(event,'tab-audit')">Audit Log</button>
+                </div>
+
+                <!-- Tab Content -->
+                <div id="tab-overview" class="tab-content active">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <p class="text-sm text-gray-500">Category</p>
+                            <p id="modalCategory" class="font-medium"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Division / Asset</p>
+                            <p id="modalDivision" class="font-medium"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Regulatory Reference</p>
+                            <p id="modalRegulatory" class="font-medium"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Trend</p>
+                            <div class="flex items-center space-x-3 mt-2">
+                                <i id="modalTrendIcon" data-feather="" class="w-8 h-8"></i>
+                                <span id="modalTrendText" class="font-medium"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-assessments" class="tab-content">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div class="text-center p-6 bg-red-50 rounded-lg">
+                            <p class="text-sm font-medium text-gray-600">Inherent Risk</p>
+                            <p id="modalInherentScore" class="text-4xl font-bold text-danger mt-2"></p>
+                            <p class="text-sm mt-2" id="modalInherentDetail"></p>
+                        </div>
+                        <div class="text-center p-6 bg-yellow-50 rounded-lg">
+                            <p class="text-sm font-medium text-gray-600">Current Risk</p>
+                            <p id="modalCurrentScore" class="text-4xl font-bold text-warning mt-2"></p>
+                            <p class="text-sm mt-2" id="modalCurrentDetail"></p>
+                        </div>
+                        <div class="text-center p-6 bg-green-50 rounded-lg">
+                            <p class="text-sm font-medium text-gray-600">Residual Risk</p>
+                            <p id="modalResidualScore" class="text-4xl font-bold text-success mt-2"></p>
+                            <p class="text-sm mt-2" id="modalResidualDetail"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-controls" class="tab-content">
+                    <h4 class="font-semibold mb-3">Current Controls</h4>
+                    <div id="modalControls"></div>
+                </div>
+
+                <div id="tab-actions" class="tab-content">
+                    <h4 class="font-semibold mb-3">Action Plan</h4>
+                    <div id="modalActions" class="space-y-3"></div>
+                </div>
+
+                <div id="tab-evidence" class="tab-content">
+                    <h4 class="font-semibold mb-3">Evidence & Attachments</h4>
+                    <p class="text-sm text-gray-500">No files attached yet.</p>
+                </div>
+
+                <div id="tab-reviews" class="tab-content">
+                    <h4 class="font-semibold mb-3">Review History</h4>
+                    <div id="modalReviews" class="text-sm text-gray-600">No reviews recorded.</div>
+                </div>
+
+                <div id="tab-audit" class="tab-content">
+                    <h4 class="font-semibold mb-3">Audit Trail</h4>
+                    <div id="modalAudit" class="text-sm text-gray-600">No changes recorded.</div>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-4">
+                <button class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition">Edit Risk</button>
+                <button id="closeModalBtn" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Full enterprise risk dataset
+const risks = [
+    {id:"RR-2025-001",name:"Third-Party Data Breach",category:"Cyber Security",division:"IT Department",asset:"Customer Database",owner:"Maria Gonzalez",focalPoint:"Alex Kim",approver:"CISO Office",regulatory:"GDPR, ISO 27001",inherentImpact:"Catastrophic",inherentLikelihood:"Likely",inherentScore:25,currentImpact:"High",currentLikelihood:"Medium",currentScore:15,residualImpact:"Medium",residualLikelihood:"Low",residualScore:6,controls:[{name:"MFA Enforcement",design:"Good",operating:"Effective"},{name:"Vendor SOC2 Review",design:"Adequate",operating:"Needs Improvement"}],actions:[{title:"Complete Pen Test",owner:"Security Team",due:"2025-12-20",complete:65,status:"In Progress"}],status:"critical",trend:"declining",lastReview:"2025-11-20",description:"Critical SaaS vendor suffered ransomware attack.",mitigation:"Enforced encryption-at-rest, quarterly pen-tests.",reviews:[{date:"2025-06-15",reviewer:"CISO",summary:"Risk accepted with controls"}],audit:[]},
+    {id:"RR-2025-002",name:"Supply Chain Disruption",category:"Supply Chain",division:"Procurement",asset:"APAC Factory",owner:"Chen Wei",focalPoint:"Supply Team",approver:"COO",regulatory:"None",inherentImpact:"Catastrophic",inherentLikelihood:"Very Likely",inherentScore:30,currentImpact:"High",currentLikelihood:"",currentScore:28,residualImpact:"Major",residualLikelihood:"Likely",residualScore:20,controls:[],actions:[{title:"Activate Dual Sourcing",owner:"Procurement",due:"2026-01-15",complete:40,status:"Planned"}],status:"critical",trend:"stable",lastReview:"2025-12-05",description:"Geopolitical risk to primary supplier.",mitigation:"Safety stock + alternative routes."},
+    {id:"RR-2025-003",name:"GDPR Consent Gap",category:"Compliance",division:"Legal",asset:"Marketing Platform",owner:"Sophie Martin",focalPoint:"Data Privacy",approver:"DPO",regulatory:"GDPR Art. 6",inherentImpact:"Major",inherentLikelihood:"Possible",inherentScore:12,currentImpact:"Minor",currentLikelihood:"Rare",currentScore:4,residualImpact:"Minor",residualLikelihood:"Rare",residualScore:2,controls:[{name:"Consent Platform",design:"Good",operating:"Effective"}],actions:[],status:"mitigated",trend:"improving",lastReview:"2025-10-15",description:"New consent rules.",mitigation:"Platform deployed Q4 2025."},
+    {id:"RR-2025-004",name:"Key Person Risk",category:"People",division:"Engineering",asset:"Core Platform Team",owner:"HR Director",focalPoint:"VP Eng",approver:"CEO",regulatory:"None",inherentImpact:"High",inherentLikelihood:"Medium",inherentScore:16,currentImpact:"Medium",currentLikelihood:"Medium",currentScore:12,residualImpact:"Medium",residualLikelihood:"Low",residualScore:8,controls:[],actions:[{title:"Succession Planning",owner:"HR",due:"2026-03-01",complete:20,status:"In Progress"}],status:"watch",trend:"stable",lastReview:"2025-12-01",description:"Three senior engineers at risk of leaving.",mitigation:"Retention program active."}
+];
+
+let currentSort = {key: '', dir: ''};
+let currentPage = 1;
+let pageSize = 25;
+let filteredRisks = [...risks];
+
+function renderTable() {
+    const tbody = document.getElementById('riskTableBody');
+    tbody.innerHTML = '';
+    
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    const pageRisks = filteredRisks.slice(start, end);
+
+    pageRisks.forEach(r => {
+        const iconShape = r.trend === 'improving' ? 'trending-up' : r.trend === 'declining' ? 'trending-down' : 'minus';
+        const iconClass = r.trend === 'improving' ? 'icon-improving' : r.trend === 'declining' ? 'icon-declining' : 'icon-stable';
+        const statusClass = r.status === 'critical' ? 'status-critical' : `status-${r.status}`;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap font-medium text-primary">${r.id}</td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                    <i data-feather="${iconShape}" class="${iconClass} risk-icon"></i>
+                    <span>${r.name}</span>
+                </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">${r.category}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${r.division}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${r.owner}</td>
+            <td class="px-6 py-4 text-center font-bold text-danger">${r.inherentScore}</td>
+            <td class="px-6 py-4 text-center font-bold text-warning">${r.currentScore}</td>
+            <td class="px-6 py-4 text-center font-bold text-success">${r.residualScore}</td>
+            <td class="px-6 py-4 text-center"><i data-feather="${iconShape}" class="${iconClass} w-6 h-6"></i></td>
+            <td class="px-6 py-4 whitespace-nowrap"><span class="status-badge ${statusClass}">${r.status}</span></td>
+            <td class="px-6 py-4 whitespace-nowrap">${r.lastReview}</td>
+        `;
+        row.onclick = (e) => { if (!e.target.closest('a')) openRiskModal(r); };
+        row.tabIndex = 0;
+        row.onkeydown = (e) => { if (e.key === 'Enter') openRiskModal(r); };
+        tbody.appendChild(row);
+    });
+
+    document.getElementById('paginationInfo').textContent = `Showing ${start + 1} to ${Math.min(end, filteredRisks.length)} of ${filteredRisks.length} entries`;
+    document.getElementById('prevPage').disabled = currentPage === 1;
+    document.getElementById('nextPage').disabled = end >= filteredRisks.length;
+
+    feather.replace();
+}
+
+function sortTable(key) {
+    const dir = currentSort.key === key && currentSort.dir === 'asc' ? 'desc' : 'asc';
+    filteredRisks.sort((a, b) => {
+        let aVal = a[key] || '';
+        let bVal = b[key] || '';
+        if (key.includes('Score')) { aVal = aVal || 0; bVal = bVal || 0; }
+        return (aVal > bVal ? 1 : -1) * (dir === 'asc' ? 1 : -1);
+    });
+    currentSort = {key, dir};
+    currentPage = 1;
+    renderTable();
+}
+
+function applyFilters() {
+    const cat = document.getElementById('filterCategory').value;
+    const div = document.getElementById('filterDivision').value;
+    const stat = document.getElementById('filterStatus').value;
+    const trend = document.getElementById('filterTrend').value;
+    const search = document.getElementById('searchInput').value.toLowerCase();
+
+    filteredRisks = risks.filter(r => {
+        return (!cat || r.category === cat) &&
+               (!div || r.division === div) &&
+               (!stat || r.status === stat) &&
+               (!trend || r.trend === trend) &&
+               (search === '' || JSON.stringify(r).toLowerCase().includes(search));
+    });
+
+    currentPage = 1;
+    renderTable();
+    updateFilterTags();
+}
+
+function updateFilterTags() {
+    const container = document.getElementById('filterTags');
+    container.innerHTML = '';
+    const filters = [
+        {el: document.getElementById('filterCategory'), label: 'Category'},
+        {el: document.getElementById('filterDivision'), label: 'Division'},
+        {el: document.getElementById('filterStatus'), label: 'Status'},
+        {el: document.getElementById('filterTrend'), label: 'Trend'}
+    ];
+    filters.forEach(f => {
+        if (f.el.value) {
+            const tag = document.createElement('span');
+            tag.className = 'bg-secondary rounded-full px-3 py-1 text-sm text-primary';
+            tag.textContent = `${f.label}: ${f.el.value}`;
+            container.appendChild(tag);
+        }
+    });
+}
+
+function toggleFilterDrawer() {
+    document.getElementById('filterDrawer').classList.toggle('open');
+}
+
+function openTab(evt, tabName) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabName).classList.add('active');
+    evt.currentTarget.classList.add('active');
+}
+
+function openRiskModal(risk) {
+    // Populate all fields
+    document.getElementById('modalRiskId').textContent = risk.id;
+    document.getElementById('modalRiskName').textContent = risk.name;
+    document.getElementById('modalRiskOwner').textContent = `Owner: ${risk.owner} • Focal: ${risk.focalPoint} • Approver: ${risk.approver}`;
+    document.getElementById('modalCategory').textContent = risk.category;
+    document.getElementById('modalDivision').textContent = risk.division + (risk.asset ? ` / ${risk.asset}` : '');
+    document.getElementById('modalRegulatory').textContent = risk.regulatory || 'None';
+
+    // Trend
+    const trendIcon = risk.trend === 'improving' ? 'trending-up' : risk.trend === 'declining' ? 'trending-down' : 'minus';
+    document.getElementById('modalTrendIcon').setAttribute('data-feather', trendIcon);
+    document.getElementById('modalTrendText').textContent = risk.trend.charAt(0).toUpperCase() + risk.trend.slice(1) + 'ing';
+    feather.replace();
+
+    // Assessments
+    document.getElementById('modalInherentScore').textContent = risk.inherentScore;
+    document.getElementById('modalInherentDetail').innerHTML = `${risk.inherentImpact}<br>${risk.inherentLikelihood}`;
+    document.getElementById('modalCurrentScore').textContent = risk.currentScore;
+    document.getElementById('modalCurrentDetail').innerHTML = `${risk.currentImpact}<br>${risk.currentLikelihood}`;
+    document.getElementById('modalResidualScore').textContent = risk.residualScore;
+    document.getElementById('modalResidualDetail').innerHTML = `${risk.residualImpact}<br>${risk.residualLikelihood}`;
+
+    // Controls
+    const controlsDiv = document.getElementById('modalControls');
+    controlsDiv.innerHTML = risk.controls.length ? '' : '<p class="text-gray-500">No controls documented.</p>';
+    risk.controls.forEach(c => {
+        controlsDiv.innerHTML += `<div class="p-3 bg-gray-50 rounded mb-2"><strong>${c.name}</strong><br>Design: ${c.design} • Operating: ${c.operating}</div>`;
+    });
+
+    // Actions
+    const actionsDiv = document.getElementById('modalActions');
+    actionsDiv.innerHTML = risk.actions.length ? '' : '<p class="text-gray-500">No actions planned.</p>';
+    risk.actions.forEach(a => {
+        actionsDiv.innerHTML += `
+            <div class="p-4 border rounded-lg">
+                <div class="flex justify-between"><strong>${a.title}</strong><span class="text-sm">${a.status}</span></div>
+                <div class="text-sm text-gray-600 mt-1">Owner: ${a.owner} • Due: ${a.due}</div>
+                <div class="mt-2"><div class="w-full bg-gray-200 rounded-full h-2"><div class="bg-primary h-2 rounded-full" style="width:${a.complete}%"></div></div><span class="text-xs mt-1">${a.complete}% complete</div>
+            </div>`;
+    });
+
+    // Reviews & Audit
+    document.getElementById('modalReviews').innerHTML = risk.reviews.length ? risk.reviews.map(rev => `<div class="py-2 border-b"><strong>${rev.date}</strong> – ${rev.reviewer}<br><em>${rev.summary}</em></div>`).join('') : 'No reviews recorded.';
+    document.getElementById('modalAudit').innerHTML = risk.audit.length ? 'Changes logged.' : 'No changes recorded.';
+
+    document.getElementById('riskModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeRiskModal() {
+    document.getElementById('riskModal').classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+// CSV Export
+document.getElementById('exportBtn').onclick = () => {
+    let csv = 'Risk ID,Title,Category,Division,Owner,Focal Point,Approver,Regulatory,Inherent Score,Current Score,Residual Score,Status,Trend,Last Review\n';
+    filteredRisks.forEach(r => {
+        csv += `"${r.id}","${r.name}","${r.category}","${r.division}","${r.owner}","${r.focalPoint}","${r.approver}","${r.regulatory}",${r.inherentScore},${r.currentScore},${r.residualScore},"${r.status}","${r.trend}","${r.lastReview}"\n`;
+    });
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'risk-register-export.csv';
+    a.click();
+};
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+    // Populate filters
+    const cats = [...new Set(risks.map(r => r.category))].sort();
+    const divs = [...new Set(risks.map(r => r.division))].sort();
+    const stats = [...new Set(risks.map(r => r.status))].sort();
+    const trends = ['improving','stable','declining'];
+
+    ['filterCategory','filterDivision','filterStatus','filterTrend'].forEach(id => {
+        const select = document.getElementById(id);
+        const options = id === 'filterCategory' ? cats : id === 'filterDivision' ? divs : id === 'filterStatus' ? stats : trends;
+        options.forEach(opt => {
+            const o = document.createElement('option');
+            o.value = opt;
+            o.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
+            select.appendChild(o);
+        });
+        select.onchange = applyFilters;
+    });
+
+    document.getElementById('searchInput').oninput = applyFilters;
+    document.getElementById('pageSize').onchange = e => { pageSize = +e.target.value; currentPage = 1; renderTable(); };
+    document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { currentPage--; renderTable(); } };
+    document.getElementById('nextPage').onclick = () => { if (currentPage * pageSize < filteredRisks.length) { currentPage++; renderTable(); } };
+
+    document.getElementById('closeModal').onclick = closeRiskModal;
+    document.getElementById('closeModalBtn').onclick = closeRiskModal;
+    document.getElementById('riskModal').onclick = e => { if (e.target === document.getElementById('riskModal')) closeRiskModal(); };
+    document.onkeydown = e => { if (e.key === 'Escape') closeRiskModal(); };
+
+    renderTable();
+    feather.replace();
+});
+</script>
+</body>
+</html>
